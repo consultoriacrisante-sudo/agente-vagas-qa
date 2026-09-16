@@ -39,7 +39,9 @@ class JobStore:
         return list(result.data or [])
 
     def upsert_job(self, job: Job) -> str:
-        fingerprint = job_fingerprint(job.source_id, job.company, job.title, job.location, job.url)
+        fingerprint = job_fingerprint(
+            job.source_id, job.company, job.title, job.location, job.url, source=job.source
+        )
         payload = {
             "fingerprint": fingerprint,
             "source": job.source,
