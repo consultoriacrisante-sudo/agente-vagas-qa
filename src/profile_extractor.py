@@ -13,7 +13,7 @@ def _years(text: str) -> int | None:
     return max(values) if values else None
 
 
-def extract_candidate_profile(text: str) -> dict:
+def extract_candidate_profile(text: str, country: str | None = None) -> dict:
     clean = " ".join(text.split())
     lower = clean.lower()
     skills = sorted({skill for skill in QA_SKILLS if skill in lower})
@@ -37,6 +37,6 @@ def extract_candidate_profile(text: str) -> dict:
         "years_experience": _years(clean),
         "seniority": seniority,
         "languages": languages,
-        "country": "Brazil",
+        "country": country,
         "remote_only": True,
     }
