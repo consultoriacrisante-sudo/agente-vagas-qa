@@ -5,6 +5,7 @@ from flask import Flask, jsonify, request
 
 from src.profile_extractor import extract_candidate_profile
 from src.resume import extract_resume_text
+from src.storage import JobStore
 
 app = Flask(__name__)
 
@@ -26,8 +27,12 @@ def telegram_api(method: str, payload=None):
     return response.json()
 
 
-def send_message(chat_id: int, text: str):
-    return telegram_api("sendMessage", {"chat_id": chat_id, "text": text})
+def send_message(chat_id: int, text: str, parse_mode: str | None = None):
+    payload = {"chat_id": chat_id, "text": text}
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+        payload["disable_web_page_preview"] = True
+    return telegram_api("sendMessage", payload)
 
 
 def download_telegram_file(file_id: str) -> bytes:
@@ -41,7 +46,7 @@ def download_telegram_file(file_id: str) -> bytes:
     return response.content
 
 
-def handle_document(chat_id: int, document: dict):
+def handle_document(chat_id: int, document: dict, display_name: str = ""):
     mime = document.get("mime_type", "")
     filename = document.get("file_name", "curriculo")
     try:
@@ -57,17 +62,24 @@ def handle_document(chat_id: int, document: dict):
             return send_message(chat_id, "⚠️ O currículo é muito grande. O limite atual é 8 MB.")
         return send_message(chat_id, "⚠️ Não consegui extrair texto suficiente desse currículo.")
 
+    JobStore().upsert_candidate_profile(
+        telegram_user_id=chat_id,
+        profile=profile,
+        display_name=display_name,
+        resume_file_name=filename,
+        resume_mime_type=mime,
+    )
+
     skills = ", ".join(profile["skills"][:12]) or "perfil profissional identificado"
     years = profile["years_experience"] or "não informado"
     send_message(
         chat_id,
-        f"✅ Currículo {filename} analisado.\n\n"
+        f"✅ Currículo {filename} analisado e perfil salvo.\n\n"
         f"🧠 Skills identificadas: {skills}\n"
         f"⏱ Experiência: {years} anos\n"
         f"🎯 Senioridade: {profile['seniority']}\n\n"
-        "Agora seu perfil pode ser usado para calcular a compatibilidade das vagas."
+        "A partir de agora o agente pode usar seu perfil para selecionar vagas compatíveis."
     )
-    # Persistência do perfil será ligada ao storage multiusuário no próximo estágio.
     return profile
 
 
@@ -87,15 +99,19 @@ def telegram_webhook():
     update = request.get_json(silent=True) or {}
     message = update.get("message") or {}
     chat = message.get("chat") or {}
+    sender = message.get("from") or {}
     chat_id = chat.get("id")
     if not chat_id:
         return jsonify({"ok": True})
 
+    display_name = " ".join(
+        part for part in [sender.get("first_name", ""), sender.get("last_name", "")] if part
+    ).strip()
     text = (message.get("text") or "").strip().lower()
     if text in {"/start", "/perfil", "/curriculo"}:
         send_message(chat_id, WELCOME)
     elif message.get("document"):
-        handle_document(chat_id, message["document"])
+        handle_document(chat_id, message["document"], display_name)
     else:
         send_message(chat_id, "📎 Envie seu currículo em PDF ou DOCX para começar.")
 
