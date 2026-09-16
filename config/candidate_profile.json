@@ -1,0 +1,78 @@
+{
+  "profile_version": 1,
+  "tracks": {
+    "qa": {
+      "enabled": true,
+      "target_titles": [
+        "QA Analyst",
+        "QA Engineer",
+        "Quality Engineer",
+        "Software Test Engineer",
+        "Test Automation Engineer",
+        "QA Automation Engineer",
+        "SDET",
+        "Mobile QA"
+      ],
+      "skills": {
+        "strong": [
+          "software testing",
+          "functional testing",
+          "regression testing",
+          "integration testing",
+          "api testing",
+          "mobile testing",
+          "android",
+          "ios",
+          "javascript",
+          "detox",
+          "browserstack",
+          "postman",
+          "git",
+          "ci/cd",
+          "sql",
+          "pl/sql",
+          "bdd",
+          "shift left"
+        ],
+        "related": [
+          "playwright",
+          "cypress",
+          "appium",
+          "robot framework",
+          "pytest",
+          "jest",
+          "docker",
+          "kubernetes"
+        ]
+      }
+    },
+    "salesforce": {
+      "enabled": true,
+      "junior_only": true,
+      "target_titles": [
+        "Salesforce Junior",
+        "Junior Salesforce Developer",
+        "Salesforce Developer Junior",
+        "Salesforce QA Junior",
+        "Salesforce Analyst Junior",
+        "Salesforce Associate",
+        "Salesforce Trainee"
+      ],
+      "skills": {
+        "learning": [
+          "salesforce",
+          "apex",
+          "soql",
+          "salesforce api",
+          "salesforce testing"
+        ]
+      }
+    }
+  },
+  "hard_filters": {
+    "remote_only": true,
+    "reject_hybrid": true,
+    "reject_onsite": true
+  },
+  "employment_types": ["CLT", "PJ", "Não informado"]
+}
