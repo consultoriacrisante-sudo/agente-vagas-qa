@@ -31,9 +31,10 @@ def score_job(job: Job, profile: dict | None = None) -> Job:
         matched_related = _skill_matches(text, related)
         title_hit = any(t.lower() in job.title.lower() for t in track["target_titles"])
 
-        # Explainable relevance score, not a hiring probability.
-        skill_score = min(70, len(matched_strong) * 7 + len(matched_related) * 4)
-        title_score = 20 if title_hit else 10
+        # Explainable relevance score, not a hiring probability. A clearly targeted
+        # QA title carries meaningful weight because many ATS summaries are concise.
+        skill_score = min(65, len(matched_strong) * 10 + len(matched_related) * 5)
+        title_score = 25 if title_hit else 10
         remote_score = 10 if job.remote else 0
         job.match_score = min(100, skill_score + title_score + remote_score)
         job.matched_skills = matched_strong + matched_related
@@ -41,8 +42,13 @@ def score_job(job: Job, profile: dict | None = None) -> Job:
     else:
         learning = track["skills"]["learning"]
         matched = _skill_matches(text, learning)
-        # Salesforce is a transition track: score opportunity relevance, not senior QA fit.
-        job.match_score = min(100, 55 + len(matched) * 7 + (10 if job.remote else 0))
+        title_hit = any(t.lower() in job.title.lower() for t in track["target_titles"])
+        # Salesforce is a transition track. Do not give a passing score merely
+        # because the vacancy is remote; require candidate-relevant evidence.
+        skill_score = min(55, len(matched) * 15)
+        title_score = 25 if title_hit else 15
+        remote_score = 10 if job.remote else 0
+        job.match_score = min(100, skill_score + title_score + remote_score)
         job.matched_skills = matched
         job.missing_skills = [s for s in learning if s not in matched][:6]
 
