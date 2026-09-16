@@ -4,6 +4,7 @@ import requests
 from flask import Flask, jsonify, request
 
 from src.daily import deliver_jobs_for_users
+from src.discovery import discover_jobs
 from src.profile_extractor import extract_candidate_profile
 from src.resume import MAX_RESUME_BYTES, extract_resume_text
 from src.storage import JobStore
@@ -115,9 +116,9 @@ def cron_daily():
     if not secret or authorization != f"Bearer {secret}":
         return jsonify({"ok": False}), 401
 
-    # Discovery providers feed this list. Empty is safe: the cron never invents vacancies.
-    result = deliver_jobs_for_users([])
-    return jsonify({"ok": True, **result})
+    jobs, discovery = discover_jobs()
+    result = deliver_jobs_for_users(jobs)
+    return jsonify({"ok": True, "discovery": discovery, **result})
 
 
 @app.post("/telegram/webhook")
