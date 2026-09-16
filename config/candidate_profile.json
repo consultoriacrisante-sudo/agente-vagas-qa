@@ -74,5 +74,5 @@
     "reject_hybrid": true,
     "reject_onsite": true
   },
-  "employment_types": ["CLT", "PJ", "Não informado"]
+  "employment_types": ["CLT", "PJ", "Contractor", "Employee", "Não informado"]
 }
