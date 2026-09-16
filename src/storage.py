@@ -13,6 +13,31 @@ class JobStore:
             os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"]
         )
 
+    def upsert_candidate_profile(
+        self,
+        telegram_user_id: int,
+        profile: dict,
+        display_name: str = "",
+        resume_file_name: str = "",
+        resume_mime_type: str = "",
+    ) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        payload = {
+            "telegram_user_id": telegram_user_id,
+            "display_name": display_name,
+            "resume_file_name": resume_file_name,
+            "resume_mime_type": resume_mime_type,
+            "profile": profile,
+            "updated_at": now,
+        }
+        self.client.table("candidate_profiles").upsert(
+            payload, on_conflict="telegram_user_id"
+        ).execute()
+
+    def list_candidate_profiles(self) -> list[dict]:
+        result = self.client.table("candidate_profiles").select("*").execute()
+        return list(result.data or [])
+
     def upsert_job(self, job: Job) -> str:
         fingerprint = job_fingerprint(job.source_id, job.company, job.title, job.location, job.url)
         payload = {

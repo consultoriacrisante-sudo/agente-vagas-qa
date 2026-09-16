@@ -2,23 +2,36 @@ from collections.abc import Iterable
 
 from src.classifier import classify_track
 from src.dedupe import job_fingerprint
+from src.eligibility import evaluate_eligibility
 from src.employment import detect_employment_type
 from src.matcher import score_job
 from src.models import Job
 from src.remote_gate import validate_remote
+from src.url_gate import valid_application_url
 
 
 def process_jobs(jobs: Iterable[Job]) -> tuple[list[Job], list[Job]]:
-    accepted: list[Job] = []
+    accepted: list[tuple[int, Job]] = []
     rejected: list[Job] = []
     seen: set[str] = set()
 
     for job in jobs:
+        if not valid_application_url(job.url):
+            job.rejection_reason = "invalid_application_url"
+            rejected.append(job)
+            continue
+
         remote = validate_remote(job.title, job.location, job.description)
         job.remote = remote.accepted
         job.remote_evidence = remote.evidence
         if not remote.accepted:
             job.rejection_reason = remote.reason
+            rejected.append(job)
+            continue
+
+        eligibility = evaluate_eligibility(job.location, job.description)
+        if not eligibility.accepted:
+            job.rejection_reason = eligibility.reason
             rejected.append(job)
             continue
 
@@ -39,7 +52,7 @@ def process_jobs(jobs: Iterable[Job]) -> tuple[list[Job], list[Job]]:
             rejected.append(job)
             continue
         seen.add(fingerprint)
-        accepted.append(job)
+        accepted.append((eligibility.priority, job))
 
-    accepted.sort(key=lambda j: j.match_score, reverse=True)
-    return accepted, rejected
+    accepted.sort(key=lambda item: (item[0], item[1].match_score), reverse=True)
+    return [job for _, job in accepted], rejected
