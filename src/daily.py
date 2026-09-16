@@ -37,10 +37,14 @@ def deliver_jobs_for_users(raw_jobs: list[Job], store: JobStore | None = None) -
     eligible_jobs = process_jobs(raw_jobs, profile=None)
     profiles = store.list_candidate_profiles()
     sent = 0
+    ready_candidates = 0
 
     for row in profiles:
         user_id = int(row["telegram_user_id"])
         candidate = row.get("profile") or {}
+        if not candidate.get("country"):
+            continue
+        ready_candidates += 1
         match_profile = _profile_for_match(candidate)
         ranked = []
 
@@ -62,4 +66,9 @@ def deliver_jobs_for_users(raw_jobs: list[Job], store: JobStore | None = None) -
             delivered += 1
             sent += 1
 
-    return {"candidates": len(profiles), "eligible_jobs": len(eligible_jobs), "sent": sent}
+    return {
+        "candidates": len(profiles),
+        "ready_candidates": ready_candidates,
+        "eligible_jobs": len(eligible_jobs),
+        "sent": sent,
+    }
