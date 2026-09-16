@@ -12,7 +12,7 @@ class Eligibility:
     reason: str | None = None
 
 
-BRAZIL = re.compile(r"\b(brasil|brazil|br|s[aã]o paulo|rio de janeiro|belo horizonte|curitiba|porto alegre|recife)\b", re.I)
+BRAZIL = re.compile(r"\b(brasil|brazil|s[aã]o paulo|rio de janeiro|belo horizonte|curitiba|porto alegre|recife)\b", re.I)
 GLOBAL = re.compile(r"\b(worldwide|anywhere|global|latin america|latam|south america|americas)\b", re.I)
 BLOCKED = re.compile(r"\b(us only|usa only|united states only|canada only|uk only|eu only|europe only|must reside in (?:the )?(?:us|usa|united states|canada|uk|european union))\b", re.I)
 
@@ -25,6 +25,6 @@ def evaluate(job: Job) -> Eligibility:
         return Eligibility(True, 100, "brazil")
     if GLOBAL.search(text):
         return Eligibility(True, 70, "international", None)
-    # Remote role with no explicit country restriction can remain discoverable,
-    # but below confirmed Brazil/global roles. The remote gate still applies first.
+    # A confirmed remote role without a geography restriction remains discoverable
+    # at lower priority; delivery can later require stronger eligibility evidence.
     return Eligibility(True, 40, "international_unspecified", None)
