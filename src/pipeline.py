@@ -2,7 +2,7 @@ from collections.abc import Iterable
 
 from src.classifier import classify_track
 from src.dedupe import job_fingerprint
-from src.eligibility import evaluate_eligibility
+from src.eligibility import evaluate
 from src.employment import detect_employment_type
 from src.matcher import score_job
 from src.models import Job
@@ -10,7 +10,7 @@ from src.remote_gate import validate_remote
 from src.url_gate import valid_application_url
 
 
-def process_jobs(jobs: Iterable[Job]) -> tuple[list[Job], list[Job]]:
+def process_jobs(jobs: Iterable[Job], profile: dict | None = None) -> tuple[list[Job], list[Job]]:
     accepted: list[tuple[int, Job]] = []
     rejected: list[Job] = []
     seen: set[str] = set()
@@ -29,7 +29,7 @@ def process_jobs(jobs: Iterable[Job]) -> tuple[list[Job], list[Job]]:
             rejected.append(job)
             continue
 
-        eligibility = evaluate_eligibility(job.location, job.description)
+        eligibility = evaluate(job)
         if not eligibility.accepted:
             job.rejection_reason = eligibility.reason
             rejected.append(job)
@@ -42,7 +42,7 @@ def process_jobs(jobs: Iterable[Job]) -> tuple[list[Job], list[Job]]:
             continue
 
         job.employment_type = detect_employment_type(job.description)
-        score_job(job)
+        score_job(job, profile)
 
         fingerprint = job_fingerprint(
             job.source_id, job.company, job.title, job.location, job.url
