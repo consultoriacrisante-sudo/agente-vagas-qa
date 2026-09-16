@@ -12,6 +12,7 @@ def test_discovery_collects_jobs_and_survives_failed_source(monkeypatch):
 
     monkeypatch.setitem(discovery.COLLECTORS, "greenhouse", good)
     monkeypatch.setitem(discovery.COLLECTORS, "lever", broken)
+    monkeypatch.setattr(discovery, "search_jobs", lambda: [])
 
     jobs, stats = discovery.discover_jobs([
         {"provider": "greenhouse", "identifier": "company-a"},
@@ -20,16 +21,29 @@ def test_discovery_collects_jobs_and_survives_failed_source(monkeypatch):
     ])
 
     assert jobs == [good_job]
-    assert stats == {
-        "sources": 3,
-        "successful_sources": 1,
-        "failed_sources": 2,
-        "jobs_found": 1,
-    }
+    assert stats["sources"] == 3
+    assert stats["successful_sources"] == 1
+    assert stats["failed_sources"] == 2
+    assert stats["search_jobs"] == 0
+    assert stats["search_failed"] is False
+    assert stats["jobs_found"] == 1
 
 
-def test_discovery_with_no_sources_is_safe():
+def test_discovery_combines_search_results(monkeypatch):
+    search_job = object()
+    monkeypatch.setattr(discovery, "search_jobs", lambda: [search_job])
+    jobs, stats = discovery.discover_jobs([])
+    assert jobs == [search_job]
+    assert stats["search_jobs"] == 1
+    assert stats["jobs_found"] == 1
+
+
+def test_search_failure_does_not_abort_daily_discovery(monkeypatch):
+    def broken_search():
+        raise RuntimeError("search unavailable")
+
+    monkeypatch.setattr(discovery, "search_jobs", broken_search)
     jobs, stats = discovery.discover_jobs([])
     assert jobs == []
+    assert stats["search_failed"] is True
     assert stats["jobs_found"] == 0
-    assert stats["failed_sources"] == 0
