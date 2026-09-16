@@ -3,6 +3,7 @@ import os
 import requests
 from flask import Flask, jsonify, request
 
+from src.daily import deliver_jobs_for_users
 from src.profile_extractor import extract_candidate_profile
 from src.resume import extract_resume_text
 from src.storage import JobStore
@@ -39,9 +40,7 @@ def download_telegram_file(file_id: str) -> bytes:
     metadata = telegram_api("getFile", {"file_id": file_id})
     file_path = metadata["result"]["file_path"]
     token = os.environ["TELEGRAM_BOT_TOKEN"]
-    response = requests.get(
-        f"https://api.telegram.org/file/bot{token}/{file_path}", timeout=30
-    )
+    response = requests.get(f"https://api.telegram.org/file/bot{token}/{file_path}", timeout=30)
     response.raise_for_status()
     return response.content
 
@@ -62,24 +61,10 @@ def handle_document(chat_id: int, document: dict, display_name: str = ""):
             return send_message(chat_id, "⚠️ O currículo é muito grande. O limite atual é 8 MB.")
         return send_message(chat_id, "⚠️ Não consegui extrair texto suficiente desse currículo.")
 
-    JobStore().upsert_candidate_profile(
-        telegram_user_id=chat_id,
-        profile=profile,
-        display_name=display_name,
-        resume_file_name=filename,
-        resume_mime_type=mime,
-    )
-
+    JobStore().upsert_candidate_profile(chat_id, profile, display_name, filename, mime)
     skills = ", ".join(profile["skills"][:12]) or "perfil profissional identificado"
     years = profile["years_experience"] or "não informado"
-    send_message(
-        chat_id,
-        f"✅ Currículo {filename} analisado e perfil salvo.\n\n"
-        f"🧠 Skills identificadas: {skills}\n"
-        f"⏱ Experiência: {years} anos\n"
-        f"🎯 Senioridade: {profile['seniority']}\n\n"
-        "A partir de agora o agente pode usar seu perfil para selecionar vagas compatíveis."
-    )
+    send_message(chat_id, f"✅ Currículo {filename} analisado e perfil salvo.\n\n🧠 Skills identificadas: {skills}\n⏱ Experiência: {years} anos\n🎯 Senioridade: {profile['seniority']}\n\nA partir de agora o agente pode usar seu perfil para selecionar vagas compatíveis.")
     return profile
 
 
@@ -88,13 +73,23 @@ def health():
     return jsonify({"status": "ok", "service": "agente-vagas-qa"})
 
 
+@app.get("/cron/daily")
+def cron_daily():
+    secret = os.environ.get("CRON_SECRET")
+    authorization = request.headers.get("Authorization", "")
+    if not secret or authorization != f"Bearer {secret}":
+        return jsonify({"ok": False}), 401
+
+    # Discovery providers feed this list. Empty is safe: the cron never invents vacancies.
+    result = deliver_jobs_for_users([])
+    return jsonify({"ok": True, **result})
+
+
 @app.post("/telegram/webhook")
 def telegram_webhook():
     expected_secret = os.environ.get("TELEGRAM_WEBHOOK_SECRET")
-    if expected_secret:
-        received = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
-        if received != expected_secret:
-            return jsonify({"ok": False}), 401
+    if expected_secret and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != expected_secret:
+        return jsonify({"ok": False}), 401
 
     update = request.get_json(silent=True) or {}
     message = update.get("message") or {}
@@ -104,9 +99,7 @@ def telegram_webhook():
     if not chat_id:
         return jsonify({"ok": True})
 
-    display_name = " ".join(
-        part for part in [sender.get("first_name", ""), sender.get("last_name", "")] if part
-    ).strip()
+    display_name = " ".join(part for part in [sender.get("first_name", ""), sender.get("last_name", "")] if part).strip()
     text = (message.get("text") or "").strip().lower()
     if text in {"/start", "/perfil", "/curriculo"}:
         send_message(chat_id, WELCOME)
@@ -114,5 +107,4 @@ def telegram_webhook():
         handle_document(chat_id, message["document"], display_name)
     else:
         send_message(chat_id, "📎 Envie seu currículo em PDF ou DOCX para começar.")
-
     return jsonify({"ok": True})
