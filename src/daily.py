@@ -32,7 +32,9 @@ def _profile_for_match(stored_profile: dict) -> dict:
 
 def deliver_jobs_for_users(raw_jobs: list[Job], store: JobStore | None = None) -> dict:
     store = store or JobStore()
-    eligible_jobs = process_jobs(raw_jobs)
+    # Filtering/classification is shared. Match score is candidate-specific, so
+    # the shared pass intentionally skips the generic matcher.
+    eligible_jobs = process_jobs(raw_jobs, profile=None)
     profiles = store.list_candidate_profiles()
     sent = 0
 
