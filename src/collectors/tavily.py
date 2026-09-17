@@ -1,6 +1,6 @@
 import hashlib
 import os
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import requests
 
@@ -13,23 +13,53 @@ SEARCH_QUERIES = [
     'QA Engineer remote LATAM Brazil',
     'Salesforce junior remote Brazil vaga',
     'Junior Salesforce remote LATAM Brazil',
+    'QA remote Brazil site:boards.greenhouse.io OR site:jobs.lever.co',
+    'QA remote LATAM site:jobs.ashbyhq.com OR site:jobs.smartrecruiters.com',
 ]
-ALLOWED_JOB_HOST_HINTS = (
-    "linkedin.com", "indeed.com", "glassdoor.com", "infojobs.com",
-    "greenhouse.io", "lever.co", "ashbyhq.com", "smartrecruiters.com",
-    "jobs.", "careers.", "workdayjobs.com",
-)
+
+
+def _path_parts(parsed) -> list[str]:
+    return [part for part in parsed.path.split("/") if part]
 
 
 def _looks_like_job_url(url: str) -> bool:
+    """Accept individual vacancy/application pages, never generic search/listing pages."""
     try:
         parsed = urlparse(url)
     except ValueError:
         return False
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         return False
-    host = parsed.netloc.lower()
-    return any(hint in host for hint in ALLOWED_JOB_HOST_HINTS)
+
+    host = parsed.netloc.lower().removeprefix("www.")
+    path = parsed.path.lower()
+    parts = _path_parts(parsed)
+    query = parse_qs(parsed.query)
+
+    if "linkedin.com" in host:
+        return "/jobs/view/" in path and len(parts) >= 3
+    if "indeed." in host:
+        return path.rstrip("/").endswith("/viewjob") and bool(query.get("jk"))
+    if "glassdoor." in host:
+        return "/job-listing/" in path or bool(query.get("jl"))
+    if "infojobs." in host:
+        return len(parts) >= 2 and any(term in path for term in ("vaga", "vagas", "job", "oferta"))
+    if "greenhouse.io" in host:
+        return len(parts) >= 2 and ("/jobs/" in path or "/job_app" in path)
+    if "lever.co" in host:
+        return len(parts) >= 2
+    if "ashbyhq.com" in host:
+        return len(parts) >= 2
+    if "smartrecruiters.com" in host:
+        return len(parts) >= 3 and any(term in path for term in ("job", "jobs"))
+    if "workdayjobs.com" in host or "myworkdayjobs.com" in host:
+        return len(parts) >= 2 and "/job/" in path
+
+    if host.startswith("jobs.") or host.startswith("careers."):
+        return len(parts) >= 2 and any(
+            term in path for term in ("/job/", "/jobs/", "position", "vacancy", "opening", "requisition")
+        )
+    return False
 
 
 def _source(url: str) -> str:
@@ -49,18 +79,22 @@ def search_jobs(queries: list[str] | None = None) -> list[Job]:
     jobs: list[Job] = []
     seen: set[str] = set()
     for query in queries or SEARCH_QUERIES:
-        response = requests.post(
-            TAVILY_URL,
-            json={
-                "api_key": api_key,
-                "query": query,
-                "search_depth": "advanced",
-                "max_results": 10,
-                "include_raw_content": True,
-            },
-            timeout=30,
-        )
-        response.raise_for_status()
+        try:
+            response = requests.post(
+                TAVILY_URL,
+                json={
+                    "api_key": api_key,
+                    "query": query,
+                    "search_depth": "advanced",
+                    "max_results": 10,
+                    "include_raw_content": True,
+                },
+                timeout=30,
+            )
+            response.raise_for_status()
+        except requests.RequestException:
+            continue
+
         for result in response.json().get("results", []):
             url = (result.get("url") or "").strip()
             if not _looks_like_job_url(url) or url in seen:
