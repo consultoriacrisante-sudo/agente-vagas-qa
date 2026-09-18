@@ -1,4 +1,5 @@
 import os
+from collections import Counter
 from dataclasses import replace
 
 from src.matcher import score_job
@@ -38,6 +39,7 @@ def deliver_jobs_for_users(
 ) -> dict:
     store = store or JobStore()
     eligible_jobs, rejected_jobs = process_jobs(raw_jobs, profile=None)
+    rejection_reasons = Counter(job.rejection_reason or "unknown" for job in rejected_jobs)
     profiles = store.list_candidate_profiles()
     if only_user_id is not None:
         profiles = [
@@ -92,6 +94,7 @@ def deliver_jobs_for_users(
         "ready_candidates": ready_candidates,
         "eligible_jobs": len(eligible_jobs),
         "rejected_jobs": len(rejected_jobs),
+        "rejection_reasons": dict(rejection_reasons),
         "seniority_rejected": seniority_rejected_total,
         "below_match_score": score_rejected_total,
         "sent": sent,
