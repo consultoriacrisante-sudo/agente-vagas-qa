@@ -36,6 +36,7 @@ def deliver_jobs_for_users(
     only_user_id: int | None = None,
 ) -> dict:
     store = store or JobStore()
+    # URL/remote/geo/track gates that do not depend on the candidate.
     eligible_jobs, rejected_jobs = process_jobs(raw_jobs, profile=None)
     profiles = store.list_candidate_profiles()
     if only_user_id is not None:
@@ -56,7 +57,15 @@ def deliver_jobs_for_users(
         match_profile = _profile_for_match(candidate)
         ranked = []
 
-        for base_job in eligible_jobs:
+        # Re-run candidate-dependent gates with the actual CV profile.
+        # This is what prevents a senior QA candidate from receiving Junior QA,
+        # while keeping Salesforce Junior available as an intentional transition track.
+        candidate_jobs, _candidate_rejected = process_jobs(
+            [replace(job) for job in eligible_jobs],
+            profile=candidate,
+        )
+
+        for base_job in candidate_jobs:
             job = score_job(replace(base_job), match_profile)
             if job.match_score >= MIN_MATCH_SCORE:
                 ranked.append(job)
