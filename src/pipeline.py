@@ -11,7 +11,7 @@ from src.url_gate import valid_application_url
 from src.vacancy_gate import seniority_compatible, vacancy_is_open
 
 
-def process_jobs(jobs: Iterable[Job], profile: dict | None = None) -> tuple[list[Job], list[Job]]:
+def process_jobs(jobs: Iterable[Job], profile: dict | None = None, score: bool = True) -> tuple[list[Job], list[Job]]:
     accepted: list[tuple[int, Job]] = []
     rejected: list[Job] = []
     seen: set[str] = set()
@@ -55,7 +55,8 @@ def process_jobs(jobs: Iterable[Job], profile: dict | None = None) -> tuple[list
             continue
 
         job.employment_type = detect_employment_type(job.description)
-        score_job(job, profile)
+        if score:
+            score_job(job, profile)
 
         fingerprint = job_fingerprint(
             job.source_id, job.company, job.title, job.location, job.url
