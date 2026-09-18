@@ -75,3 +75,30 @@ def test_on_demand_delivery_targets_only_requesting_user(monkeypatch):
     assert recipients == [456]
     assert (456, "fingerprint-1") in store.sent
     assert (123, "fingerprint-1") not in store.sent
+
+
+def test_senior_candidate_does_not_receive_junior_qa(monkeypatch):
+    class SeniorStore(FakeStore):
+        def list_candidate_profiles(self):
+            return [{
+                "telegram_user_id": 123,
+                "profile": {
+                    "skills": ["api", "postman", "javascript"],
+                    "country": "Brazil",
+                    "seniority": "senior",
+                    "years_experience": 7,
+                },
+            }]
+
+    junior = job()
+    junior.title = "Analista de Testes Manuais Júnior (QA)"
+    recipients = []
+    monkeypatch.setattr(
+        "src.daily.send_job",
+        lambda vacancy, chat_id=None: recipients.append(chat_id),
+    )
+
+    result = deliver_jobs_for_users([junior], SeniorStore())
+
+    assert result["sent"] == 0
+    assert recipients == []
