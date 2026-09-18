@@ -63,6 +63,7 @@ def deliver_jobs_for_users(
         candidate_jobs, _candidate_rejected = process_jobs(
             [replace(job) for job in eligible_jobs],
             profile=candidate,
+            score=False,
         )
 
         for base_job in candidate_jobs:
