@@ -30,10 +30,20 @@ def _profile_for_match(stored_profile: dict) -> dict:
     }
 
 
-def deliver_jobs_for_users(raw_jobs: list[Job], store: JobStore | None = None) -> dict:
+def deliver_jobs_for_users(
+    raw_jobs: list[Job],
+    store: JobStore | None = None,
+    only_user_id: int | None = None,
+) -> dict:
     store = store or JobStore()
     eligible_jobs, rejected_jobs = process_jobs(raw_jobs, profile=None)
     profiles = store.list_candidate_profiles()
+    if only_user_id is not None:
+        profiles = [
+            row
+            for row in profiles
+            if int(row["telegram_user_id"]) == int(only_user_id)
+        ]
     sent = 0
     ready_candidates = 0
 

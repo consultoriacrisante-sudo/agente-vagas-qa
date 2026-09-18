@@ -23,6 +23,14 @@ class FakeStore:
         self.sent.add((user_id, fingerprint))
 
 
+class MultiUserStore(FakeStore):
+    def list_candidate_profiles(self):
+        return [
+            {"telegram_user_id": 123, "profile": {"skills": ["api", "postman", "javascript"], "country": "Brazil"}},
+            {"telegram_user_id": 456, "profile": {"skills": ["api", "postman", "javascript"], "country": "Brazil"}},
+        ]
+
+
 def job():
     return Job(
         source="test",
@@ -52,3 +60,18 @@ def test_candidate_without_country_is_not_delivered(monkeypatch):
     result = deliver_jobs_for_users([job()], store)
     assert result["ready_candidates"] == 0
     assert result["sent"] == 0
+
+
+def test_on_demand_delivery_targets_only_requesting_user(monkeypatch):
+    store = MultiUserStore()
+    recipients = []
+    monkeypatch.setattr("src.daily.send_job", lambda vacancy, chat_id=None: recipients.append(chat_id))
+
+    result = deliver_jobs_for_users([job()], store=store, only_user_id=456)
+
+    assert result["candidates"] == 1
+    assert result["ready_candidates"] == 1
+    assert result["sent"] == 1
+    assert recipients == [456]
+    assert (456, "fingerprint-1") in store.sent
+    assert (123, "fingerprint-1") not in store.sent

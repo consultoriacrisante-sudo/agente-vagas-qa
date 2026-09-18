@@ -16,7 +16,8 @@ WELCOME = (
     "📄 Anexe o seu currículo em PDF ou DOCX para que nós possamos encontrar "
     "as vagas que são compatíveis com o seu perfil.\n\n"
     "🌎 Depois do currículo, informe seu país com /pais Brasil (ou o seu país). "
-    "O agente usa essa informação para validar vagas 100% remotas que realmente aceitam sua localização."
+    "Assim que o país for confirmado, a primeira busca começa automaticamente.\n\n"
+    "🔎 Depois, use /vagas quando quiser procurar novas oportunidades."
 )
 
 
@@ -81,17 +82,50 @@ def handle_document(chat_id: int, document: dict, display_name: str = ""):
     return profile
 
 
+def _candidate_row(chat_id: int, store: JobStore) -> dict | None:
+    return next(
+        (row for row in store.list_candidate_profiles() if int(row["telegram_user_id"]) == int(chat_id)),
+        None,
+    )
+
+
+def search_jobs_now(chat_id: int) -> None:
+    store = JobStore()
+    row = _candidate_row(chat_id, store)
+    if not row:
+        send_message(chat_id, "📄 Primeiro envie seu currículo em PDF ou DOCX.")
+        return
+    profile = row.get("profile") or {}
+    if not profile.get("country"):
+        send_message(chat_id, "🌎 Primeiro confirme seu país. Exemplo: /pais Brasil")
+        return
+
+    send_message(chat_id, "🔎 Buscando novas vagas 100% remotas compatíveis com o seu perfil...")
+    try:
+        jobs, _discovery = discover_jobs()
+        result = deliver_jobs_for_users(jobs, store=store, only_user_id=chat_id)
+    except (requests.RequestException, KeyError, OSError, RuntimeError):
+        send_message(chat_id, "⚠️ Não consegui concluir a busca agora. Tente novamente em alguns minutos com /vagas.")
+        return
+
+    if result["sent"] == 0:
+        send_message(
+            chat_id,
+            "ℹ️ Não encontrei uma vaga nova que passe por todos os filtros agora. "
+            "Seu perfil continua ativo e você pode usar /vagas novamente mais tarde.",
+        )
+
+
 def set_country(chat_id: int, country: str) -> None:
     country = country.strip()
     if not country or len(country) > 80:
         send_message(chat_id, "⚠️ Use o formato /pais Brasil")
         return
     store = JobStore()
-    rows = [row for row in store.list_candidate_profiles() if int(row["telegram_user_id"]) == int(chat_id)]
-    if not rows:
+    row = _candidate_row(chat_id, store)
+    if not row:
         send_message(chat_id, "📄 Primeiro envie seu currículo em PDF ou DOCX.")
         return
-    row = rows[0]
     profile = dict(row.get("profile") or {})
     profile["country"] = country
     store.upsert_candidate_profile(
@@ -101,7 +135,8 @@ def set_country(chat_id: int, country: str) -> None:
         row.get("resume_file_name") or "",
         row.get("resume_mime_type") or "",
     )
-    send_message(chat_id, f"✅ País confirmado: {country}. Seu perfil está pronto para o matching de vagas remotas.")
+    send_message(chat_id, f"✅ País confirmado: {country}. Vou iniciar sua primeira busca agora.")
+    search_jobs_now(chat_id)
 
 
 @app.get("/health")
@@ -142,8 +177,10 @@ def telegram_webhook():
         send_message(chat_id, WELCOME)
     elif text.startswith("/pais"):
         set_country(chat_id, raw_text[5:].strip())
+    elif text == "/vagas":
+        search_jobs_now(chat_id)
     elif message.get("document"):
         handle_document(chat_id, message["document"], display_name)
     else:
-        send_message(chat_id, "📎 Envie seu currículo em PDF ou DOCX para começar.")
+        send_message(chat_id, "📎 Envie seu currículo em PDF ou DOCX para começar. Depois use /vagas para buscar oportunidades.")
     return jsonify({"ok": True})
