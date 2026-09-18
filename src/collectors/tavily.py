@@ -8,13 +8,26 @@ from src.models import Job
 
 TAVILY_URL = "https://api.tavily.com/search"
 SEARCH_QUERIES = [
-    'QA remote Brazil vaga "100% remoto"',
-    'Quality Assurance remote Brazil jobs',
-    'QA Engineer remote LATAM Brazil',
-    'Salesforce junior remote Brazil vaga',
+    # Brazil first: fresh QA vacancies across major aggregators.
+    'QA remoto Brasil últimas 24 horas site:linkedin.com/jobs/view',
+    'QA pleno senior remoto Brasil últimos 3 dias site:linkedin.com/jobs/view',
+    'QA Engineer remote Brazil site:indeed.com/viewjob',
+    'Quality Assurance remoto Brasil site:glassdoor.com/job-listing',
+    'Analista QA pleno senior remoto site:infojobs.com.br',
+    # International roles that can accept candidates based in Brazil/LATAM.
+    'Senior QA Engineer remote LATAM Brazil',
+    'QA Automation Engineer remote LATAM Brazil',
+    'Mobile QA remote LATAM Brazil Android iOS',
+    'SDET remote LATAM Brazil',
+    # Official ATS vacancy pages.
+    'QA Brazil remote site:boards.greenhouse.io/jobs',
+    'QA LATAM remote site:jobs.lever.co',
+    'QA LATAM remote site:jobs.ashbyhq.com',
+    'QA Brazil remote site:jobs.smartrecruiters.com',
+    'QA Brazil remote site:myworkdayjobs.com/job',
+    # Salesforce is intentionally junior/entry-level for the transition track.
+    'Salesforce junior remoto Brasil últimos 7 dias',
     'Junior Salesforce remote LATAM Brazil',
-    'QA remote Brazil site:boards.greenhouse.io OR site:jobs.lever.co',
-    'QA remote LATAM site:jobs.ashbyhq.com OR site:jobs.smartrecruiters.com',
 ]
 
 
@@ -86,7 +99,8 @@ def search_jobs(queries: list[str] | None = None) -> list[Job]:
                     "api_key": api_key,
                     "query": query,
                     "search_depth": "advanced",
-                    "max_results": 10,
+                    "max_results": 20,
+                    "time_range": "week",
                     "include_raw_content": True,
                 },
                 timeout=30,

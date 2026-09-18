@@ -59,3 +59,18 @@ def test_one_failed_query_does_not_abort_remaining_searches(monkeypatch):
     assert jobs[0].source == "linkedin"
     assert jobs[0].source_id
     assert jobs[0].url == "https://www.linkedin.com/jobs/view/123"
+
+
+def test_search_is_limited_to_recent_week_and_requests_more_results(monkeypatch):
+    monkeypatch.setenv("TAVILY_API_KEY", "test-key")
+    payloads = []
+
+    def fake_post(*args, **kwargs):
+        payloads.append(kwargs["json"])
+        return _Response({"results": []})
+
+    monkeypatch.setattr("src.collectors.tavily.requests.post", fake_post)
+    search_jobs(["QA remote Brazil"])
+
+    assert payloads[0]["time_range"] == "week"
+    assert payloads[0]["max_results"] == 20
