@@ -18,13 +18,21 @@ def extract_candidate_profile(text: str, country: str | None = None) -> dict:
     lower = clean.lower()
     skills = sorted({skill for skill in QA_SKILLS if skill in lower})
 
+    years_experience = _years(clean)
+
+    # Prefer explicit senior-level evidence and years over incidental junior words
+    # elsewhere in a CV (for example, an old role or course title).
     seniority = "unknown"
-    if re.search(r"\b(senior|sênior|sr\.?|lead|líder)\b", lower):
+    if re.search(r"\b(senior|sênior|sr\.?|lead|líder)\b", lower) or (
+        years_experience is not None and years_experience >= 6
+    ):
         seniority = "senior"
+    elif re.search(r"\b(pleno|mid.level|mid-level)\b", lower) or (
+        years_experience is not None and years_experience >= 3
+    ):
+        seniority = "mid"
     elif re.search(r"\b(junior|júnior|jr\.?|trainee|entry.level)\b", lower):
         seniority = "junior"
-    elif re.search(r"\b(pleno|mid.level|mid-level)\b", lower):
-        seniority = "mid"
 
     languages = []
     if "english" in lower or "inglês" in lower:
@@ -34,7 +42,7 @@ def extract_candidate_profile(text: str, country: str | None = None) -> dict:
 
     return {
         "skills": skills,
-        "years_experience": _years(clean),
+        "years_experience": years_experience,
         "seniority": seniority,
         "languages": languages,
         "country": country,
