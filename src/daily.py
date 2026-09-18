@@ -1,4 +1,5 @@
 import os
+from collections import Counter
 from dataclasses import replace
 
 from src.matcher import score_job
@@ -38,6 +39,9 @@ def deliver_jobs_for_users(
     store = store or JobStore()
     # URL/remote/geo/track gates that do not depend on the candidate.
     eligible_jobs, rejected_jobs = process_jobs(raw_jobs, profile=None)
+    rejection_reasons = Counter(
+        job.rejection_reason or "unknown" for job in rejected_jobs
+    )
     profiles = store.list_candidate_profiles()
     if only_user_id is not None:
         profiles = [
@@ -60,16 +64,21 @@ def deliver_jobs_for_users(
         # Re-run candidate-dependent gates with the actual CV profile.
         # This is what prevents a senior QA candidate from receiving Junior QA,
         # while keeping Salesforce Junior available as an intentional transition track.
-        candidate_jobs, _candidate_rejected = process_jobs(
+        candidate_jobs, candidate_rejected = process_jobs(
             [replace(job) for job in eligible_jobs],
             profile=candidate,
             score=False,
+        )
+        rejection_reasons.update(
+            job.rejection_reason or "unknown" for job in candidate_rejected
         )
 
         for base_job in candidate_jobs:
             job = score_job(replace(base_job), match_profile)
             if job.match_score >= MIN_MATCH_SCORE:
                 ranked.append(job)
+            else:
+                rejection_reasons["below_match_score"] += 1
 
         ranked.sort(key=lambda j: j.match_score, reverse=True)
         delivered = 0
@@ -90,4 +99,5 @@ def deliver_jobs_for_users(
         "eligible_jobs": len(eligible_jobs),
         "rejected_jobs": len(rejected_jobs),
         "sent": sent,
+        "rejection_reasons": dict(rejection_reasons),
     }
