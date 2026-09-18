@@ -8,6 +8,7 @@ from src.matcher import score_job
 from src.models import Job
 from src.remote_gate import validate_remote
 from src.url_gate import valid_application_url
+from src.vacancy_gate import seniority_compatible, vacancy_is_open
 
 
 def process_jobs(jobs: Iterable[Job], profile: dict | None = None) -> tuple[list[Job], list[Job]]:
@@ -18,6 +19,12 @@ def process_jobs(jobs: Iterable[Job], profile: dict | None = None) -> tuple[list
     for job in jobs:
         if not valid_application_url(job.url):
             job.rejection_reason = "invalid_application_url"
+            rejected.append(job)
+            continue
+
+        is_open, closed_reason = vacancy_is_open(job)
+        if not is_open:
+            job.rejection_reason = closed_reason
             rejected.append(job)
             continue
 
@@ -38,6 +45,12 @@ def process_jobs(jobs: Iterable[Job], profile: dict | None = None) -> tuple[list
         job.track = classify_track(job.title, job.description)
         if not job.track:
             job.rejection_reason = "outside_target_tracks"
+            rejected.append(job)
+            continue
+
+        compatible, seniority_reason = seniority_compatible(job, profile)
+        if not compatible:
+            job.rejection_reason = seniority_reason
             rejected.append(job)
             continue
 
