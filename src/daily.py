@@ -16,6 +16,8 @@ def _profile_for_match(stored_profile: dict) -> dict:
     """Adapt the generic CV profile to the matcher without inventing skills."""
     skills = stored_profile.get("skills") or []
     return {
+        "seniority": stored_profile.get("seniority", "unknown"),
+        "years_experience": stored_profile.get("years_experience"),
         "tracks": {
             "qa": {
                 "target_titles": ["QA", "Quality Assurance", "Test", "SDET"],

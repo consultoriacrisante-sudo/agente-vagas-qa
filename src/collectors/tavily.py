@@ -8,13 +8,27 @@ from src.models import Job
 
 TAVILY_URL = "https://api.tavily.com/search"
 SEARCH_QUERIES = [
-    'QA remote Brazil vaga "100% remoto"',
-    'Quality Assurance remote Brazil jobs',
-    'QA Engineer remote LATAM Brazil',
-    'Salesforce junior remote Brazil vaga',
-    'Junior Salesforce remote LATAM Brazil',
-    'QA remote Brazil site:boards.greenhouse.io OR site:jobs.lever.co',
-    'QA remote LATAM site:jobs.ashbyhq.com OR site:jobs.smartrecruiters.com',
+    '"Senior QA" remoto Brasil',
+    '"QA Engineer" remoto Brasil',
+    '"QA Automation" remoto Brasil',
+    '"Analista de Testes" pleno remoto Brasil',
+    '"Analista de Testes" senior remoto Brasil',
+    '"Senior QA" remote LATAM Brazil',
+    '"QA Engineer" remote LATAM Brazil',
+    '"SDET" remote LATAM Brazil',
+    '"Mobile QA" remote LATAM Brazil',
+    '"Salesforce" junior remoto Brasil',
+    '"Junior Salesforce" remote LATAM Brazil',
+    '"QA" remoto Brasil site:linkedin.com/jobs/view',
+    '"QA" remoto Brasil site:br.indeed.com/viewjob',
+    '"QA" remoto Brasil site:glassdoor.com/job-listing',
+    '"QA" remoto Brasil site:infojobs.com.br',
+    '"QA" remote Brazil site:boards.greenhouse.io',
+    '"QA" remote Brazil site:jobs.lever.co',
+    '"QA" remote LATAM site:jobs.ashbyhq.com',
+    '"QA" remote Brazil site:jobs.smartrecruiters.com',
+    '"QA" remoto Brasil site:gupy.io',
+    '"QA" remote Brazil site:workable.com',
 ]
 
 
@@ -54,17 +68,24 @@ def _looks_like_job_url(url: str) -> bool:
         return len(parts) >= 3 and any(term in path for term in ("job", "jobs"))
     if "workdayjobs.com" in host or "myworkdayjobs.com" in host:
         return len(parts) >= 2 and "/job/" in path
+    if "gupy.io" in host:
+        return len(parts) >= 2 and any(term in path for term in ("/job/", "/jobs/", "/vagas/"))
+    if "workable.com" in host:
+        return len(parts) >= 2 and any(term in path for term in ("/j/", "/jobs/", "/view/"))
+    if "recruitee.com" in host:
+        return len(parts) >= 2 and any(term in path for term in ("/o/", "/jobs/"))
 
-    if host.startswith("jobs.") or host.startswith("careers."):
-        return len(parts) >= 2 and any(
-            term in path for term in ("/job/", "/jobs/", "position", "vacancy", "opening", "requisition")
-        )
+    # Company career sites vary widely. Require explicit vacancy semantics or a
+    # requisition-like identifier instead of restricting discovery to jobs.* subdomains.
+    job_terms = ("/job/", "/jobs/", "/position/", "/positions/", "/vacancy/", "/opening/", "/requisition/")
+    if any(term in path for term in job_terms):
+        return len(parts) >= 2
     return False
 
 
 def _source(url: str) -> str:
     host = urlparse(url).netloc.lower().removeprefix("www.")
-    for name in ("linkedin", "indeed", "glassdoor", "infojobs", "greenhouse", "lever", "ashby", "smartrecruiters", "workday"):
+    for name in ("linkedin", "indeed", "glassdoor", "infojobs", "greenhouse", "lever", "ashby", "smartrecruiters", "workday", "gupy", "workable", "recruitee"):
         if name in host:
             return name
     return host or "web"
@@ -86,7 +107,8 @@ def search_jobs(queries: list[str] | None = None) -> list[Job]:
                     "api_key": api_key,
                     "query": query,
                     "search_depth": "advanced",
-                    "max_results": 10,
+                    "max_results": 20,
+                    "time_range": "month",
                     "include_raw_content": True,
                 },
                 timeout=30,

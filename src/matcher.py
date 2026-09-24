@@ -33,10 +33,21 @@ def score_job(job: Job, profile: dict | None = None) -> Job:
 
         # Explainable relevance score, not a hiring probability. A clearly targeted
         # QA title carries meaningful weight because many ATS summaries are concise.
-        skill_score = min(65, len(matched_strong) * 10 + len(matched_related) * 5)
+        skill_score = min(60, len(matched_strong) * 10 + len(matched_related) * 5)
         title_score = 25 if title_hit else 10
         remote_score = 10 if job.remote else 0
-        job.match_score = min(100, skill_score + title_score + remote_score)
+
+        candidate_level = str(profile.get("seniority") or "unknown").lower()
+        title_lower = job.title.lower()
+        senior_title = any(term in title_lower for term in ("senior", "sênior", " sr", "lead", "staff", "principal"))
+        mid_title = any(term in title_lower for term in ("pleno", "mid-level", "mid level"))
+        seniority_score = 0
+        if candidate_level == "senior" and (senior_title or not mid_title):
+            seniority_score = 10
+        elif candidate_level == "mid" and (mid_title or not senior_title):
+            seniority_score = 10
+
+        job.match_score = min(100, skill_score + title_score + remote_score + seniority_score)
         job.matched_skills = matched_strong + matched_related
         job.missing_skills = [s for s in strong if s not in matched_strong][:6]
     else:

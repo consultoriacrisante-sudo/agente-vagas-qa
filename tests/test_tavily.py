@@ -11,6 +11,9 @@ def test_individual_job_urls_are_accepted():
     assert _looks_like_job_url("https://jobs.lever.co/acme/123")
     assert _looks_like_job_url("https://jobs.ashbyhq.com/acme/123")
     assert _looks_like_job_url("https://careers.example.com/jobs/123")
+    assert _looks_like_job_url("https://acme.com/careers/jobs/qa-123")
+    assert _looks_like_job_url("https://acme.gupy.io/jobs/123456")
+    assert _looks_like_job_url("https://apply.workable.com/acme/j/ABC123/")
 
 
 def test_generic_job_search_and_invalid_urls_are_rejected():
@@ -59,3 +62,20 @@ def test_one_failed_query_does_not_abort_remaining_searches(monkeypatch):
     assert jobs[0].source == "linkedin"
     assert jobs[0].source_id
     assert jobs[0].url == "https://www.linkedin.com/jobs/view/123"
+
+
+def test_search_uses_fresh_high_recall_tavily_parameters(monkeypatch):
+    monkeypatch.setenv("TAVILY_API_KEY", "test-key")
+    captured = []
+
+    def fake_post(*args, **kwargs):
+        captured.append(kwargs["json"])
+        return _Response({"results": []})
+
+    monkeypatch.setattr("src.collectors.tavily.requests.post", fake_post)
+    search_jobs(["QA remote Brazil"])
+
+    assert captured[0]["search_depth"] == "advanced"
+    assert captured[0]["max_results"] == 20
+    assert captured[0]["time_range"] == "month"
+    assert captured[0]["include_raw_content"] is True
