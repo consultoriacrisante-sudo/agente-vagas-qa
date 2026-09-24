@@ -109,10 +109,22 @@ def search_jobs_now(chat_id: int) -> None:
         return
 
     if result["sent"] == 0:
+        reasons = result.get("rejection_reasons") or {}
+        found = len(jobs)
+        eligible = result.get("eligible_jobs", 0)
+        top = sorted(reasons.items(), key=lambda item: item[1], reverse=True)[:4]
+        detail = ", ".join(f"{name}: {count}" for name, count in top)
+        diagnostic = (
+            f"\n\n🔎 Diagnóstico: {found} vagas encontradas; "
+            f"{eligible} passaram pelos filtros gerais."
+        )
+        if detail:
+            diagnostic += f"\nPrincipais descartes: {detail}."
         send_message(
             chat_id,
             "ℹ️ Não encontrei uma vaga nova que passe por todos os filtros agora. "
-            "Seu perfil continua ativo e você pode usar /vagas novamente mais tarde.",
+            "Seu perfil continua ativo e você pode usar /vagas novamente mais tarde."
+            + diagnostic,
         )
 
 
