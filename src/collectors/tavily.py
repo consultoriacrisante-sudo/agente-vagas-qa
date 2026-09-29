@@ -29,6 +29,11 @@ SEARCH_QUERIES = [
     '"QA" remote Brazil site:jobs.smartrecruiters.com',
     '"QA" remoto Brasil site:gupy.io',
     '"QA" remote Brazil site:workable.com',
+    '"QA" remoto BR site:mondywork.com/vaga',
+    '"Quality Assurance" remoto BR site:mondywork.com/vaga',
+    '"Analista de Testes" remoto BR site:mondywork.com/vaga',
+    '"QA Automation" remoto BR site:mondywork.com/vaga',
+    '"Salesforce" junior remoto BR site:mondywork.com/vaga',
 ]
 
 
@@ -74,6 +79,8 @@ def _looks_like_job_url(url: str) -> bool:
         return len(parts) >= 2 and any(term in path for term in ("/j/", "/jobs/", "/view/"))
     if "recruitee.com" in host:
         return len(parts) >= 2 and any(term in path for term in ("/o/", "/jobs/"))
+    if "mondywork.com" in host:
+        return len(parts) >= 2 and any(term in path for term in ("/vaga/", "/job/"))
 
     # Company career sites vary widely. Require explicit vacancy semantics or a
     # requisition-like identifier instead of restricting discovery to jobs.* subdomains.
@@ -85,7 +92,7 @@ def _looks_like_job_url(url: str) -> bool:
 
 def _source(url: str) -> str:
     host = urlparse(url).netloc.lower().removeprefix("www.")
-    for name in ("linkedin", "indeed", "glassdoor", "infojobs", "greenhouse", "lever", "ashby", "smartrecruiters", "workday", "gupy", "workable", "recruitee"):
+    for name in ("linkedin", "indeed", "glassdoor", "infojobs", "greenhouse", "lever", "ashby", "smartrecruiters", "workday", "gupy", "workable", "recruitee", "mondywork"):
         if name in host:
             return name
     return host or "web"
