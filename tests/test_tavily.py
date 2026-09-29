@@ -14,6 +14,8 @@ def test_individual_job_urls_are_accepted():
     assert _looks_like_job_url("https://acme.com/careers/jobs/qa-123")
     assert _looks_like_job_url("https://acme.gupy.io/jobs/123456")
     assert _looks_like_job_url("https://apply.workable.com/acme/j/ABC123/")
+    assert _looks_like_job_url("https://mondywork.com/vaga/a40f2727-c5b3-4d15-9caa-8ce8674b0112")
+    assert _looks_like_job_url("https://mondywork.com/job/e2a697d7-9eb3-46b7-99c2-943694e97816")
 
 
 def test_generic_job_search_and_invalid_urls_are_rejected():
@@ -29,6 +31,7 @@ def test_generic_job_search_and_invalid_urls_are_rejected():
 def test_source_is_derived_from_url_host():
     assert _source("https://www.linkedin.com/jobs/view/123") == "linkedin"
     assert _source("https://jobs.lever.co/acme/123") == "lever"
+    assert _source("https://mondywork.com/vaga/123") == "mondywork"
 
 
 class _Response:
