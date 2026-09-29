@@ -2,6 +2,7 @@ import os
 from collections import Counter
 from dataclasses import replace
 
+from src.eligibility import evaluate
 from src.matcher import score_job
 from src.models import Job
 from src.pipeline import process_jobs
@@ -82,11 +83,23 @@ def deliver_jobs_for_users(
             else:
                 rejection_reasons["below_match_score"] += 1
 
-        ranked.sort(key=lambda j: j.match_score, reverse=True)
+        # Brazil-first delivery: candidate fit still matters, but national roles
+        # are always presented before eligible international roles.
+        ranked.sort(
+            key=lambda j: (evaluate(j).priority, j.match_score),
+            reverse=True,
+        )
         delivered = 0
+        international_delivered = 0
+        brazil_available = any(evaluate(j).market == "brazil" for j in ranked)
         for job in ranked:
             if delivered >= MAX_JOBS_PER_USER:
                 break
+            market = evaluate(job).market
+            # When national matches exist, reserve most of the bulletin for Brazil.
+            # International roles remain a complement, not the majority.
+            if brazil_available and market != "brazil" and international_delivered >= 2:
+                continue
             fingerprint = store.upsert_job(job)
             if store.already_sent(user_id, fingerprint):
                 continue
@@ -94,6 +107,8 @@ def deliver_jobs_for_users(
             store.mark_sent(user_id, fingerprint, job.match_score)
             delivered += 1
             sent += 1
+            if market != "brazil":
+                international_delivered += 1
 
     return {
         "candidates": len(profiles),
